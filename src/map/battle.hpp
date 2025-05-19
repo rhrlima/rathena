@@ -726,6 +726,7 @@ struct Battle_Config
 	int32 idletime_mer_option;
 	int32 feature_refineui;
 	int32 rndopt_drop_pillar;
+	int32 always_show_drop_effect;
 	int32 pet_legacy_formula;
 	int32 pet_distance_check;
 	int32 pet_hide_check;
