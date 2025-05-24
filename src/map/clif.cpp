@@ -863,7 +863,6 @@ void clif_charselectok(int32 id, uint8 ok)
 /// 084B <id>.L <name id>.W <type>.W <identified>.B <x>.W <y>.W <subX>.B <subY>.B <amount>.W (ZC_ITEM_FALL_ENTRY4)
 /// 0ADD <id>.L <name id>.W <type>.W <identified>.B <x>.W <y>.W <subX>.B <subY>.B <amount>.W <show drop effect>.B <drop effect mode>.W (ZC_ITEM_FALL_ENTRY5)
 void clif_dropflooritem( struct flooritem_data* fitem, bool canShowEffect ){
-
 	nullpo_retv(fitem);
 
 	if( fitem->item.nameid == 0 ){
@@ -899,6 +898,7 @@ void clif_dropflooritem( struct flooritem_data* fitem, bool canShowEffect ){
 					optionCount++;
 				}
 			}
+
 			if (optionCount > 0) {
 				p.showdropeffect = 1;
 				if (optionCount == 1)
