@@ -930,8 +930,8 @@ void clif_dropflooritem( struct flooritem_data* fitem, bool canShowEffect ){
 
 #if defined(PACKETVER_ZERO) || PACKETVER >= 20180418
 	clif_set_dropeffect(fitem, canShowEffect, &p);
-	ShowInfo("DROP ITEM: canShowEffect=%d, showDropEffect=%d, dropEffectMode=%d, alwaysShow=%d\n",
-		canShowEffect, p.showdropeffect, p.dropeffectmode, battle_config.always_show_drop_effect);
+	// ShowInfo("DROP ITEM: canShowEffect=%d, showDropEffect=%d, dropEffectMode=%d, alwaysShow=%d\n",
+	// 	canShowEffect, p.showdropeffect, p.dropeffectmode, battle_config.always_show_drop_effect);
 #endif
 	clif_send( &p, sizeof(p), &fitem->bl, AREA );
 }

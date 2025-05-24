@@ -3150,6 +3150,7 @@ struct s_random_opt_group {
 	std::string name;
 	std::map<uint16, std::vector<std::shared_ptr<s_random_opt_group_entry>>> slots;
 	uint16 max_random;
+	std::vector<uint16> chances;
 	std::vector<std::shared_ptr<s_random_opt_group_entry>> random_options;
 
 public:

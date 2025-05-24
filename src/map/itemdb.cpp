@@ -4571,6 +4571,12 @@ bool RandomOptionGroupDatabase::add_option(const ryml::NodeRef& node, std::share
 }
 
 void s_random_opt_group::apply( struct item& item ){
+
+	// number of attemps to pick an option randomly (for low chance options)
+	// if it fails, picks an option without checking the chance
+	int retry_attemps = 3;
+	int max_chance = 10000;
+
 	auto apply_sub = []( s_item_randomoption& item_option, const std::shared_ptr<s_random_opt_group_entry>& option ){
 		item_option.id = option->id;
 		item_option.value = rnd_value( option->min_value, option->max_value );
@@ -4587,10 +4593,10 @@ void s_random_opt_group::apply( struct item& item ){
 	// Apply Must options
 	for( size_t i = 0; i < this->slots.size(); i++ ){
 		// Try to apply an entry
-		for( size_t j = 0, max = this->slots[static_cast<uint16>(i)].size() * 3; j < max; j++ ){
+		for( size_t j = 0, max = this->slots[static_cast<uint16>(i)].size() * retry_attemps; j < max; j++ ){
 			std::shared_ptr<s_random_opt_group_entry> option = util::vector_random( this->slots[static_cast<uint16>(i)] );
 
-			if ( rnd_chance<uint16>(option->chance, 10000) ) {
+			if ( rnd_chance<uint16>(option->chance, max_chance) ) {
 				apply_sub( item.option[i], option );
 				break;
 			}
@@ -4607,21 +4613,56 @@ void s_random_opt_group::apply( struct item& item ){
 
 	// Apply Random options (if available)
 	if( this->max_random > 0 ){
-		for( size_t i = 0; i < min( this->max_random, MAX_ITEM_RDM_OPT ); i++ ){
-			// If item already has an option in this slot, skip it
+		for( size_t i = 0; i < min( this->max_random, MAX_ITEM_RDM_OPT ); i++ ) {
+
+			ShowInfo("A i=%d max=%d size=%d\n", i, this->max_random, this->chances.size());
+
+			// Has valid option. Skip slot
 			if( item.option[i].id > 0 ){
+				ShowInfo("Already has an option. Skipping\n");
 				continue;
 			}
 
-			std::shared_ptr<s_random_opt_group_entry> option = util::vector_random( this->random_options );
+			std::shared_ptr<s_random_opt_group_entry> option;
 
-			if ( rnd_chance<uint16>(option->chance, 10000) ){
+			// If Chances[i] is invalid (empty), try to use option chance
+			if ( i >= this->chances.size() ) {
+				ShowInfo("Using Per Option chance\n");
+				option = util::vector_random( this->random_options );
+				if ( rnd_chance<uint16>(option->chance, max_chance) )
+					apply_sub( item.option[i], option );
+				continue;
+			}
+
+			// Chances[i] is zero. Skip slot
+			if ( !rnd_chance<uint16>(this->chances[i], max_chance) ) {
+				ShowInfo("Failed to apply. Skipping\n");
+				continue;
+			}
+
+			// Chances[i] is valid. Tries to pick a random option
+			for( size_t j = 0, max = this->random_options.size() * retry_attemps; j < max; j++ ) {
+
+				ShowInfo("Trying random options\n");
+				option = util::vector_random( this->random_options );
+				if ( rnd_chance<uint16>(option->chance, max_chance) ) {
+					apply_sub( item.option[i], option );
+					break;
+				}
+			}
+
+			// If no entry was applied, assign one
+			if( item.option[i].id == 0 ){
+				ShowInfo("Forcing option\n");
+				// Apply an entry without checking the chance
+				option = util::vector_random( this->random_options );
 				apply_sub( item.option[i], option );
 			}
 		}
 	}
 
 	// Fix any gaps, the client cannot handle this
+	// shifts empty options forward
 	for( size_t i = 0; i < MAX_ITEM_RDM_OPT; i++ ){
 		// If an option is empty
 		if( item.option[i].id == 0 ){
@@ -4742,6 +4783,18 @@ uint64 RandomOptionGroupDatabase::parseBodyNode(const ryml::NodeRef& node) {
 		if (!exists)
 			randopt->max_random = 0;
 	}
+
+	ShowInfo( "Before process Chances\n" );
+	if ( !this->asUInt16List(node, "Chances", randopt->chances, MAX_ITEM_RDM_OPT) )
+		this->invalidWarning(node, "Failed to parse the \"Chances\" list. Defaults to empty list.\n");
+	ShowInfo( "After process Chances\n" );
+	ShowInfo( "[Random Options] Using the bigger value between MaxRandom(%d) and Chances(%d).\n", randopt->max_random, randopt->chances.size() );
+
+	randopt->max_random = max( randopt->max_random, randopt->chances.size() );
+	ShowInfo( "MaxRandom value=%d\n", randopt->max_random );
+
+	// if ( this->nodeExists(node, "Chances") ) {
+	// }
 
 	if (this->nodeExists(node, "Random")) {
 		randopt->random_options.clear();

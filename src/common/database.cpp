@@ -348,6 +348,40 @@ bool YamlDatabase::asUInt32Rate( const ryml::NodeRef& node, const std::string& n
 	}
 }
 
+bool YamlDatabase::asUInt16List(const ryml::NodeRef& node, const std::string& name, std::vector<uint16>& out, size_t maxSize) {
+	
+	// TODO maybe we dont need to pass maxSize
+	out.clear(); // make sure output is empty
+
+	if (!this->nodeExists(node, name))
+		return false;
+
+	const auto& listNode = node[c4::to_csubstr(name)];
+
+	if (!listNode.is_seq()) {
+		this->invalidWarning(listNode, "Node \"%s\" must be a sequence.\n", name.c_str());
+		return false;
+	}
+
+	// out.resize(maxSize, 0); // Fill with zeros
+	for (size_t i = 0; i < listNode.num_children() && i < maxSize; ++i) {
+		const auto& child = listNode.child(i);
+
+		if (!child.has_val())
+			continue;
+
+		try {
+			uint16 value = static_cast<uint16>(std::stoi(child.val().str));
+			out.push_back(value);
+		} catch ( std::runtime_error const& ) {
+			this->invalidWarning( child, "Node child \"%s\" cannot parse %s as uint16.\n", name.c_str(), child.val().str);
+			return false;
+		}
+	}
+
+	return true;
+}
+
 int32 YamlDatabase::getLineNumber(const ryml::NodeRef& node) {
 	return parser.source().has_str() ? (int32)parser.location(node).line : 0;
 }
