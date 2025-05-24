@@ -165,8 +165,8 @@ Body:
         Rate: 7000
       - Item: Knife_
         Index: 1
-        Rate: 100
-#       RandomOptionGroup: 30L
+        Rate: 10000
+        RandomOptionGroup: TEST_CHANCE_OPTIONS
       - Item: Sticky_Mucus
         Index: 2
         Rate: 400
