@@ -918,20 +918,18 @@ void clif_dropflooritem( struct flooritem_data* fitem, bool canShowEffect ){
 	p.PacketType = dropflooritemType;
 	p.ITAID = fitem->bl.id;
 	p.ITID = client_nameid( fitem->item.nameid );
+#if PACKETVER >= 20130000 /* not sure date */
+	p.type = itemtype( fitem->item.nameid );
+#endif
 	p.IsIdentified = fitem->item.identify ? 1 : 0;
 	p.xPos = fitem->bl.x;
 	p.yPos = fitem->bl.y;
 	p.subX = fitem->subx;
 	p.subY = fitem->suby;
 	p.count = fitem->item.amount;
-#if PACKETVER >= 20130000 /* not sure date */
-	p.type = itemtype( fitem->item.nameid );
-#endif
 
 #if defined(PACKETVER_ZERO) || PACKETVER >= 20180418
 	clif_set_dropeffect(fitem, canShowEffect, &p);
-	ShowInfo("DROP ITEM: canShowEffect=%d, showDropEffect=%d, dropEffectMode=%d, alwaysShow=%d\n",
-		canShowEffect, p.showdropeffect, p.dropeffectmode, battle_config.always_show_drop_effect);
 #endif
 	clif_send( &p, sizeof(p), &fitem->bl, AREA );
 }
