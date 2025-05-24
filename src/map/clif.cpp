@@ -903,6 +903,51 @@ void clif_set_dropeffect(struct flooritem_data* fitem, bool canShowEffect, struc
 	}
 }
 
+/// Defines the dropEffect applied when an item appear on the ground.
+void clif_set_dropeffect(struct flooritem_data* fitem, bool canShowEffect, struct packet_dropflooritem* p){
+
+	// default case (no effect)
+	p->showdropeffect = 0;
+	p->dropeffectmode = DROPEFFECT_NONE;
+
+	// early return if cannot show effect AND always show is disabled
+	if (!canShowEffect && !battle_config.always_show_drop_effect) return;
+
+	// fetches the dropeffect (if set) in the item config
+	uint8 dropEffect = itemdb_dropeffect( fitem->item.nameid );
+
+	// dropEffect exists in item config, just use it
+	if (dropEffect > 0){
+		p->showdropeffect = 1;
+		p->dropeffectmode = dropEffect - 1;
+		return;
+	}
+
+	// if "rndopt_drop_pillar" is enabled in conf file
+	if (battle_config.rndopt_drop_pillar){
+		uint8 optionCount = 0;
+		for (uint8 i = 0; i < MAX_ITEM_RDM_OPT; i++){
+			if (fitem->item.option[i].id != 0)
+				optionCount++;
+		}
+
+		// no options or more than expected, use default case
+		if (optionCount == 0 || optionCount > MAX_ITEM_RDM_OPT) return;
+
+		static const uint8 effect_by_optcount[] = {
+			DROPEFFECT_BLUE_PILLAR,
+			DROPEFFECT_YELLOW_PILLAR,
+			DROPEFFECT_PURPLE_PILLAR,
+			DROPEFFECT_RED_PILLAR,
+			DROPEFFECT_GREEN_PILLAR,
+		};
+
+		p->showdropeffect = 1;
+		p->dropeffectmode = effect_by_optcount[optionCount - 1] - 1;
+		return;
+	}
+}
+
 /// Makes an item appear on the ground.
 /// 009E <id>.L <name id>.W <identified>.B <x>.W <y>.W <subX>.B <subY>.B <amount>.W (ZC_ITEM_FALL_ENTRY)
 /// 084B <id>.L <name id>.W <type>.W <identified>.B <x>.W <y>.W <subX>.B <subY>.B <amount>.W (ZC_ITEM_FALL_ENTRY4)
@@ -924,14 +969,42 @@ void clif_dropflooritem( struct flooritem_data* fitem, bool canShowEffect ){
 	p.subX = fitem->subx;
 	p.subY = fitem->suby;
 	p.count = fitem->item.amount;
-#if PACKETVER >= 20130000 /* not sure date */
-	p.type = itemtype( fitem->item.nameid );
-#endif
-
 #if defined(PACKETVER_ZERO) || PACKETVER >= 20180418
-	clif_set_dropeffect(fitem, canShowEffect, &p);
-	ShowInfo("DROP ITEM: canShowEffect=%d, showDropEffect=%d, dropEffectMode=%d, alwaysShow=%d\n",
-		canShowEffect, p.showdropeffect, p.dropeffectmode, battle_config.always_show_drop_effect);
+	if( canShowEffect ){
+		uint8 dropEffect = itemdb_dropeffect( fitem->item.nameid );
+
+		if( dropEffect > 0 ){
+			p.showdropeffect = 1;
+			p.dropeffectmode = dropEffect - 1;
+		}else if (battle_config.rndopt_drop_pillar != 0){
+			uint8 optionCount = 0;
+
+			for (uint8 i = 0; i < MAX_ITEM_RDM_OPT; i++) {
+				if (fitem->item.option[i].id != 0) {
+					optionCount++;
+				}
+			}
+
+			if (optionCount > 0) {
+				p.showdropeffect = 1;
+				if (optionCount == 1)
+					p.dropeffectmode = DROPEFFECT_BLUE_PILLAR - 1;
+				else if (optionCount == 2)
+					p.dropeffectmode = DROPEFFECT_YELLOW_PILLAR - 1;
+				else
+					p.dropeffectmode = DROPEFFECT_PURPLE_PILLAR - 1;
+			} else {
+				p.showdropeffect = 0;
+				p.dropeffectmode = DROPEFFECT_NONE;
+			}
+		} else {
+			p.showdropeffect = 0;
+			p.dropeffectmode = DROPEFFECT_NONE;
+		}
+	}else{
+		p.showdropeffect = 0;
+		p.dropeffectmode = DROPEFFECT_NONE;
+	}
 #endif
 	clif_send( &p, sizeof(p), &fitem->bl, AREA );
 }
