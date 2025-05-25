@@ -349,8 +349,7 @@ bool YamlDatabase::asUInt32Rate( const ryml::NodeRef& node, const std::string& n
 }
 
 bool YamlDatabase::asUInt16List(const ryml::NodeRef& node, const std::string& name, std::vector<uint16>& out, size_t maxSize) {
-	
-	// TODO maybe we dont need to pass maxSize
+
 	out.clear(); // make sure output is empty
 
 	if (!this->nodeExists(node, name))
@@ -363,7 +362,6 @@ bool YamlDatabase::asUInt16List(const ryml::NodeRef& node, const std::string& na
 		return false;
 	}
 
-	// out.resize(maxSize, 0); // Fill with zeros
 	for (size_t i = 0; i < listNode.num_children() && i < maxSize; ++i) {
 		const auto& child = listNode.child(i);
 
