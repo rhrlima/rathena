@@ -4615,19 +4615,14 @@ void s_random_opt_group::apply( struct item& item ){
 	if( this->max_random > 0 ){
 		for( size_t i = 0; i < min( this->max_random, MAX_ITEM_RDM_OPT ); i++ ) {
 
-			ShowInfo("A i=%d max=%d size=%d\n", i, this->max_random, this->chances.size());
-
 			// Has valid option. Skip slot
-			if( item.option[i].id > 0 ){
-				ShowInfo("Already has an option. Skipping\n");
+			if( item.option[i].id > 0 )
 				continue;
-			}
 
 			std::shared_ptr<s_random_opt_group_entry> option;
 
 			// If Chances[i] is invalid (empty), try to use option chance
 			if ( i >= this->chances.size() ) {
-				ShowInfo("Using Per Option chance\n");
 				option = util::vector_random( this->random_options );
 				if ( rnd_chance<uint16>(option->chance, max_chance) )
 					apply_sub( item.option[i], option );
@@ -4635,15 +4630,11 @@ void s_random_opt_group::apply( struct item& item ){
 			}
 
 			// Chances[i] is zero. Skip slot
-			if ( !rnd_chance<uint16>(this->chances[i], max_chance) ) {
-				ShowInfo("Failed to apply. Skipping\n");
+			if ( !rnd_chance<uint16>(this->chances[i], max_chance) )
 				continue;
-			}
 
 			// Chances[i] is valid. Tries to pick a random option
 			for( size_t j = 0, max = this->random_options.size() * retry_attemps; j < max; j++ ) {
-
-				ShowInfo("Trying random options\n");
 				option = util::vector_random( this->random_options );
 				if ( rnd_chance<uint16>(option->chance, max_chance) ) {
 					apply_sub( item.option[i], option );
@@ -4653,7 +4644,6 @@ void s_random_opt_group::apply( struct item& item ){
 
 			// If no entry was applied, assign one
 			if( item.option[i].id == 0 ){
-				ShowInfo("Forcing option\n");
 				// Apply an entry without checking the chance
 				option = util::vector_random( this->random_options );
 				apply_sub( item.option[i], option );
@@ -4784,17 +4774,9 @@ uint64 RandomOptionGroupDatabase::parseBodyNode(const ryml::NodeRef& node) {
 			randopt->max_random = 0;
 	}
 
-	ShowInfo( "Before process Chances\n" );
 	if ( !this->asUInt16List(node, "Chances", randopt->chances, MAX_ITEM_RDM_OPT) )
 		this->invalidWarning(node, "Failed to parse the \"Chances\" list. Defaults to empty list.\n");
-	ShowInfo( "After process Chances\n" );
-	ShowInfo( "[Random Options] Using the bigger value between MaxRandom(%d) and Chances(%d).\n", randopt->max_random, randopt->chances.size() );
-
 	randopt->max_random = max( randopt->max_random, randopt->chances.size() );
-	ShowInfo( "MaxRandom value=%d\n", randopt->max_random );
-
-	// if ( this->nodeExists(node, "Chances") ) {
-	// }
 
 	if (this->nodeExists(node, "Random")) {
 		randopt->random_options.clear();
