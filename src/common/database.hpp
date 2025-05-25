@@ -56,6 +56,7 @@ protected:
 	bool asString(const ryml::NodeRef& node, const std::string &name, std::string &out);
 	bool asUInt16Rate(const ryml::NodeRef& node, const std::string& name, uint16& out, uint16 maximum=10000);
 	bool asUInt32Rate(const ryml::NodeRef& node, const std::string& name, uint32& out, uint32 maximum=10000);
+	bool asUInt16List(const ryml::NodeRef& node, const std::string& name, std::vector<uint16>& out, size_t maxSize);
 
 	void setGenerator(bool shouldLoad);
 

@@ -33,7 +33,7 @@
 #           Param       Parameter value. (Default: 0)
 #           Chance      Chance applied specifically to this Item Random Option (1 = 0.01%, 10000 = 100%). (Default: 0)
 #   MaxRandom           Maximum amount of random options applied. These options are not guaranteed to be applied. Max of (MAX_ITEM_RDM_OPT - Total 'Slots'). (Default: 0)
-#   Chances             List that defines the chances to apply an option. Uses Max(MaxRandom, Size(Chances)). (Default: [])
+#   Chances:            List of chances for applying an option. It uses the MAX( size(Chances), MaxRandom). (Optional) (Default: [])
 #   Random:             List of possible Item Random Options for remaining slots. (Optional)
 #     - Option          Item Random Option constant.
 #       MinValue        Minimum value. (Default: 0)
