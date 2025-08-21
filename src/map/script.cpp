@@ -24747,7 +24747,9 @@ BUILDIN_FUNC(recalculatestat) {
 BUILDIN_FUNC(hateffect){
 #if PACKETVER_MAIN_NUM >= 20150507 || PACKETVER_RE_NUM >= 20150429 || defined(PACKETVER_ZERO)
 	block_list* bl;
+	block_list* bl;
 
+	if( !script_rid2bl( 4, bl ) )
 	if( !script_rid2bl( 4, bl ) )
 		return SCRIPT_CMD_FAILURE;
 
@@ -24767,7 +24769,7 @@ BUILDIN_FUNC(hateffect){
 	}
 
 	if( enable ){
-		if( util::vector_exists( ud->hatEffects, effectID ) ){
+		if( it != sd->hatEffects.end() ){
 			return SCRIPT_CMD_SUCCESS;
 		}
 

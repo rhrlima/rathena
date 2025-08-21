@@ -236,7 +236,7 @@ template <typename K, typename V> V* map_find( std::map<K,V>& map, K key ){
 		 * @param vector: Vector to erase value from
 		 * @param value: Value to remove
 		 */
-		template <typename K, typename V> void vector_erase_if_exists(std::vector<K> &vector, V value) {
+		template <typename K, typename V> bool vector_erase_if_exists(std::vector<K> &vector, V value) {
 			auto it = std::find(vector.begin(), vector.end(), value);
 
 			if (it != vector.end()) {
@@ -245,6 +245,10 @@ template <typename K, typename V> V* map_find( std::map<K,V>& map, K key ){
 					vector.shrink_to_fit();
 				} else
 					vector.erase(it);
+
+				return true;
+			}else{
+				return false;
 			}
 		}
 
