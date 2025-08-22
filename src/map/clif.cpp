@@ -21433,15 +21433,8 @@ void clif_navigateTo(map_session_data *sd, const char* mapname, uint16 x, uint16
 /// 0A3B <Length>.W <AID>.L <Status>.B { <HatEffectId>.W } (ZC_EQUIPMENT_EFFECT)
 void clif_hat_effects( block_list& bl, enum send_target target, block_list& tbl ){
 #if PACKETVER_MAIN_NUM >= 20150507 || PACKETVER_RE_NUM >= 20150429 || defined(PACKETVER_ZERO)
-	map_session_data *tsd;
-	block_list* tbl;
-
-	if( target == SELF ){
-		tsd = BL_CAST(BL_PC,&bl);
-		tbl = &sd;
-	}else{
-		tsd = &sd;
-		tbl = &bl;
+	if( map_data* mdata = map_getmapdata( bl.m ); mdata != nullptr && mdata->getMapFlag( MF_NOCOSTUME ) ){
+		return;
 	}
 
 	if( tsd == nullptr ){
@@ -21473,6 +21466,10 @@ void clif_hat_effects( block_list& bl, enum send_target target, block_list& tbl 
 /// 0A3B <Length>.W <AID>.L <Status>.B { <HatEffectId>.W } (ZC_EQUIPMENT_EFFECT)
 void clif_hat_effect_single( block_list& bl, uint16 effectId, bool enable ){
 #if PACKETVER_MAIN_NUM >= 20150507 || PACKETVER_RE_NUM >= 20150429 || defined(PACKETVER_ZERO)
+	if( map_data* mdata = map_getmapdata( bl.m ); mdata != nullptr && mdata->getMapFlag( MF_NOCOSTUME ) ){
+		return;
+	}
+
 	PACKET_ZC_EQUIPMENT_EFFECT* p = reinterpret_cast<PACKET_ZC_EQUIPMENT_EFFECT*>( packet_buffer );
 
 	p->packetType = HEADER_ZC_EQUIPMENT_EFFECT;
