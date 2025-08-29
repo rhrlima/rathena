@@ -64,6 +64,7 @@ struct skill_usave {
 	uint16 skill_id, skill_lv;
 };
 
+SkillDatabase skill_db;
 AbraDatabase abra_db;
 MagicMushroomDatabase magic_mushroom_db;
 ReadingSpellbookDatabase reading_spellbook_db;
@@ -22956,6 +22957,61 @@ void skill_unit_move_unit_group(std::shared_ptr<s_skill_unit_group> group, int16
 	aFree(m_flag);
 }
 
+bool can_produce(map_session_data *sd, std::shared_ptr<s_skill_produce_db> recipe, uint16 trigger, int32 qty) {
+
+	if (recipe == nullptr)
+		return false;
+
+	// if recipe requires a skill. check if player has the required skill lv [malufett]
+	if (recipe->req_skill > 0 && pc_checkskill(sd, recipe->req_skill) < recipe->req_skill_lv)
+		return false;
+
+	// if triggered by skill, check if skill used is the required
+	if (recipe->req_skill > 0 && sd->menuskill_id > 0 && sd->menuskill_id != recipe->req_skill)
+		return false;
+
+	//FIXME Temporary check since the produce_db specifically wants the Pharmacy skill to use
+	if (recipe->product_id == ITEMID_HOMUNCULUS_SUPPLEMENT && pc_checkskill(sd, AM_BIOETHICS) != 0)
+		return false;
+
+	// Cannot carry the produced stuff
+	if (pc_checkadditem(sd, recipe->product_id, qty) == CHKADDITEM_OVERAMOUNT)
+		return false;
+
+	//TODO Is this by design? These group rules could be used for organization of recipes
+	// not to enforce something
+	if (trigger > 20) { // Non-weapon, non-food item (itemlv must match)
+		if (recipe->group_id != trigger)
+			return false;
+	} else if (trigger > 10) { // Food (any item level between 10 and 20 will do)
+		if (recipe->group_id <= 10 || recipe->group_id > 20)
+			return false;
+	} else if (trigger > 0) { // Weapon (itemlv must be higher or equal)
+		if (recipe->group_id < trigger)
+			return false;
+	}
+
+	// Check on player's inventory
+	for (const auto &[mat_id, mat_amt] : recipe->materials) {
+
+		if (!item_db.exists(mat_id))
+			return false;
+
+		// ensures player need at least 1 of each even for items with amount = 0 (not consumed)
+		uint16 req_amt = max(1, qty * mat_amt);
+
+		uint16 idx, amt;
+		if ((idx = pc_search_inventory(sd, mat_id)) == -1)
+			return false;
+
+		amt = sd->inventory.u.items_inventory[idx].amount;
+		if (amt < req_amt)
+			return false;
+	}
+
+	return true;
+}
+
 /** Checking recipe requirements
  * Checking if player has the item or not, the amount, and the weight limit.
  * @param sd Player
@@ -22966,65 +23022,25 @@ void skill_unit_move_unit_group(std::shared_ptr<s_skill_unit_group> group, int16
  */
 std::shared_ptr<s_skill_produce_db> skill_can_produce_mix(map_session_data *sd, t_itemid nameid, uint16 trigger, int32 qty) {
 
+	// ShowInfo("CAN PRODUCE MIX pid=%d gid=%d qty=%d\n", nameid, trigger, qty);
+
 	nullpo_retr(nullptr, sd);
 
 	if (!nameid || !item_db.exists(nameid))
 		return nullptr;
 
-	std::shared_ptr<s_skill_produce_db> produce = skill_produce_db.find(nameid, trigger);
-	if (produce == nullptr) {
-		ShowError("skill_cam_produce_mix: Recipe not found for product_id: %d trigger: %d\n", nameid, trigger);
-		return nullptr;
+	auto recipes = skill_produce_db.findById(nameid, trigger);
+
+	for (auto& produce : recipes) {
+
+		ShowInfo("TRYING RECIPE ric=%d pid-%d gid=%d\n", produce->recipe_id, produce->product_id, produce->group_id);
+
+		if (can_produce(sd, produce, trigger, qty))
+			return produce;
 	}
 
-	// if recipe requires a skill. check if player has the required skill lv [malufett]
-	if (produce->req_skill > 0 && pc_checkskill(sd, produce->req_skill) < produce->req_skill_lv)
-		return nullptr;
-
-	// if triggered by skill, check if skill used is the required
-	if (produce->req_skill > 0 && sd->menuskill_id > 0 && sd->menuskill_id != produce->req_skill)
-		return nullptr;
-
-	//FIXME Temporary check since the produce_db specifically wants the Pharmacy skill to use
-	if (nameid == ITEMID_HOMUNCULUS_SUPPLEMENT && pc_checkskill(sd, AM_BIOETHICS) != 0)
-		return nullptr;
-
-	// Cannot carry the produced stuff
-	if (pc_checkadditem(sd, nameid, qty) == CHKADDITEM_OVERAMOUNT)
-		return nullptr;
-
-	//TODO Is this by design? These group rules could be used for organization of recipes
-	// not to enforce something
-	if (trigger > 20) { // Non-weapon, non-food item (itemlv must match)
-		if (produce->group_id != trigger)
-			return nullptr;
-	} else if (trigger > 10) { // Food (any item level between 10 and 20 will do)
-		if (produce->group_id <= 10 || produce->group_id > 20)
-			return nullptr;
-	} else if (trigger > 0) { // Weapon (itemlv must be higher or equal)
-		if (produce->group_id < trigger)
-			return nullptr;
-	}
-
-	// Check on player's inventory
-	for (const auto &[mat_id, mat_amt] : produce->materials) {
-
-		if (!item_db.exists(mat_id))
-			return nullptr;
-
-		// ensures player need at least 1 of each even for items with amount = 0 (not consumed)
-		uint16 req_amt = max(1, qty * mat_amt);
-
-		uint16 idx, amt;
-		if ((idx = pc_search_inventory(sd, mat_id)) == -1)
-			return nullptr;
-
-		amt = sd->inventory.u.items_inventory[idx].amount;
-		if (amt < req_amt)
-			return nullptr;
-	}
-
-	return produce;
+	// none of the recipes was valid
+	return nullptr;
 }
 
 // since the can produce mix called internally do not provide the group_id, which I made required
@@ -23060,6 +23076,8 @@ bool skill_produce_mix(map_session_data *sd, uint16 skill_id, t_itemid nameid, u
 		if( produce == nullptr )
 			return false;
 	}
+
+	ShowInfo("PRODUCE MIX ric=%d pid=%d skid=%d qty=%d\n", produce->recipe_id, nameid, skill_id, qty);
 
 	if (!skill_id) // A skill can be specified for some override cases.
 		skill_id = produce->req_skill;
@@ -24944,6 +24962,8 @@ int32 skill_get_time3(struct map_data *mapdata, uint16 skill_id, uint16 skill_lv
 	return time;
 }
 
+/// SKILL DATABASE
+
 const std::string SkillDatabase::getDefaultLocation() {
 	return std::string(db_path) + "/skill_db.yml";
 }
@@ -26021,8 +26041,6 @@ uint16 SkillDatabase::get_index( uint16 skill_id, bool silent, const char *func,
 	return idx;
 }
 
-SkillDatabase skill_db;
-
 const std::string ReadingSpellbookDatabase::getDefaultLocation() {
 	return std::string(db_path) + "/spellbook_db.yml";
 }
@@ -26193,17 +26211,11 @@ uint64 SkillProduceDatabase::parseBodyNode(const ryml::NodeRef &node) {
 	}
 
 	this->asUInt16(node, "Group", group_id);
-	
-	std::shared_ptr<s_skill_produce_db> produce = this->find(item->nameid, group_id, true); // exact
-	bool exists = produce != nullptr;
-	
-	uint64 key = this->makeKey(item->nameid, group_id);
-	if (!exists) {
-		produce = std::make_shared<s_skill_produce_db>();
-		produce->id = key;
-		produce->product_id = item->nameid;
-		produce->group_id = group_id;
-	}
+
+	auto produce = std::make_shared<s_skill_produce_db>();
+	produce->recipe_id = ++this->recipes;
+	produce->product_id = item->nameid;
+	produce->group_id = group_id;
 
 	std::unordered_map<t_itemid, uint16> mats;
 	for (const auto& matsNode : node["Consumed"]) {
@@ -26272,8 +26284,9 @@ uint64 SkillProduceDatabase::parseBodyNode(const ryml::NodeRef &node) {
 		produce->qty = qty;
 	}
 
-	if (!exists)
-		this->put(key, produce);
+	this->put(this->recipes, produce);
+
+	ShowInfo("PARSE RECIPE ric=%d pid=%d gid=%d\n", produce->recipe_id, produce->product_id, produce->group_id);
 
 	return 1;
 }
@@ -26283,29 +26296,31 @@ uint64 SkillProduceDatabase::parseBodyNode(const ryml::NodeRef &node) {
  * @param group_id Recipe Group
  * @return Unique key
  */
-uint64 SkillProduceDatabase::makeKey(t_itemid product_id, uint16 group_id) {
-	return (static_cast<uint64>( product_id ) << 32) | static_cast<uint64>( group_id );
-}
+// uint64 SkillProduceDatabase::makeKey(t_itemid product_id, uint16 group_id) {
+// 	return (static_cast<uint64>( product_id ) << 32) | static_cast<uint64>( group_id );
+// }
 
 /** Searches for a recipe based on the Product and Group
  * @param product_id Produced Item
  * @param group_id Recipe Group (optional for faster search)
  * @return s_skill_produce_db if found or nullptr
  */
-std::shared_ptr<s_skill_produce_db> SkillProduceDatabase::find( t_itemid product_id, uint16 group_id, bool exact ) {
+std::vector<std::shared_ptr<s_skill_produce_db>> SkillProduceDatabase::findById( t_itemid product_id, uint16 group_id ) {
 
-	auto recipe = this->find( this->makeKey( product_id, group_id ) );
-	
-	if (recipe || exact)
-		return recipe;
+	std::vector<std::shared_ptr<s_skill_produce_db>> recipes;
+	recipes.reserve(5);
 
-	//TODO find a better way to determine the number of groups
-	for (uint8 gid = 1; gid < UINT8_MAX; gid++) {
-		auto recipe = this->find( this->makeKey( product_id, gid ) );
-		if (recipe) return recipe;
+	for (auto& [_, recipe] : this->data ) {
+		if ( group_id && recipe->group_id != group_id)
+			continue;
+
+		if ( recipe->product_id == product_id )
+			recipes.push_back(recipe);
 	}
 
-	return nullptr;
+	ShowInfo("FOUND %d RECIPES\n", recipes.size());
+
+	return recipes;
 }
 
 /// ARROW DATABASE

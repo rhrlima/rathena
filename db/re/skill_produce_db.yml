@@ -2698,3 +2698,10 @@ Body:
     Amount: 10
   - Item: Royal_Jelly
     Amount: 3
+- Product: White_Potion
+  Group: 22
+  SkillName: AM_PHARMACY
+  SkillLevel: 1
+  Consumed:
+  - Item: Red_Potion
+    Amount: 1

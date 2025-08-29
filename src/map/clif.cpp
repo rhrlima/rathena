@@ -6323,6 +6323,8 @@ void clif_skill_produce_mix_list( map_session_data& sd, int32 skill_id, int32 tr
 		if (!skill_can_produce_mix(&sd, recipe->product_id, trigger, 1))
 			continue;
 
+		ShowInfo("CAN PRODUCE ric=%d pid=%d gid=%d\n", recipe->recipe_id, recipe->product_id, trigger);
+
 		PACKET_ZC_MAKABLEITEMLIST_sub& entry = p->items[count];
 
 		entry.itemId = client_nameid( recipe->product_id );
@@ -13134,10 +13136,27 @@ void clif_parse_ProduceMix(int32 fd,map_session_data *sd){
 		return;
 	}
 
-	std::shared_ptr<s_skill_produce_db> produce = skill_can_produce_mix(sd,p->itemId,sd->menuskill_val, 1);
+	ShowInfo("PRODUCE RESPONSE pid=%d gid=%d\n", p->itemId, sd->menuskill_val);
 
-	if( produce != nullptr )
-		skill_produce_mix(sd,0,p->itemId,p->material[0],p->material[1],p->material[2],1,produce);
+	for (const auto &[_, recipe] : skill_produce_db) {
+
+		if (recipe->product_id != p->itemId)
+			continue;
+
+		ShowInfo("RECIPE FOUND: rid=%d pid=%d gid=%d\n", recipe->recipe_id, recipe->product_id, recipe->group_id);
+		
+		// std::shared_ptr<s_skill_produce_db> produce = skill_can_produce_mix(sd,p->itemId,sd->menuskill_val, 1);
+		auto produce = skill_can_produce_mix(sd, recipe->product_id, recipe->group_id, 1); // placeholder so it wont fail
+
+		if( produce == nullptr ) {
+			ShowInfo("CANNOT PRODUCE\n");
+			continue;
+		}
+
+		skill_produce_mix(sd, sd->menuskill_id, recipe->product_id, p->material[0], p->material[1], p->material[2], 1, produce);
+		break; // we break out, so we don't produce for each valid recipe
+	}
+
 	clif_menuskill_clear(sd);
 }
 
