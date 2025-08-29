@@ -4707,7 +4707,6 @@ static int32 battle_calc_attack_skill_ratio(struct Damage* wd, struct block_list
 	}
 
 	switch(skill_id) {
-		case SM_MAGNUM:
 		case MS_MAGNUM:
 			if(wd->miscflag == 1)
 				skillratio += 20 * skill_lv; //Inner 3x3 circle takes 100%+20%*level damage [Playtester]
