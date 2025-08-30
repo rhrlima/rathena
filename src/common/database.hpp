@@ -245,6 +245,71 @@ public:
 	}
 };
 
+template <typename keytype, typename datatype> class TypesafeMultiYamlDatabase : public YamlDatabase {
+protected:
+    std::unordered_multimap<keytype, std::shared_ptr<datatype>> data;
+
+public:
+    TypesafeMultiYamlDatabase(const std::string& type_, uint16 version_, uint16 minimumVersion_) : YamlDatabase(type_, version_, minimumVersion_) {}
+
+    TypesafeMultiYamlDatabase(const std::string& type_, uint16 version_) : YamlDatabase(type_, version_, version_) {}
+
+    void clear() override {
+        this->data.clear();
+    }
+
+    bool empty() {
+        return this->data.empty();
+    }
+
+    bool exists(keytype key) {
+        return this->data.find(key) != this->data.end();
+    }
+
+    /// Returns the first match (for compatibility)
+    virtual std::shared_ptr<datatype> find(keytype key) {
+        auto it = this->data.find(key);
+        return (it != this->data.end()) ? it->second : nullptr;
+    }
+
+    /// Returns all matches for a given key
+    virtual std::vector<std::shared_ptr<datatype>> findAll(keytype key) {
+        std::vector<std::shared_ptr<datatype>> results;
+        auto range = this->data.equal_range(key);
+        for (auto it = range.first; it != range.second; ++it) {
+            results.push_back(it->second);
+        }
+
+        return results;
+    }
+
+    virtual void put(keytype key, std::shared_ptr<datatype> ptr) {
+        this->data.emplace(key, ptr);
+    }
+
+    typename std::unordered_multimap<keytype, std::shared_ptr<datatype>>::iterator begin() {
+        return this->data.begin();
+    }
+
+    typename std::unordered_multimap<keytype, std::shared_ptr<datatype>>::iterator end() {
+        return this->data.end();
+    }
+
+    size_t size() {
+        return this->data.size();
+    }
+
+    std::shared_ptr<datatype> random() {
+        if (this->empty())
+            return nullptr;
+        return rathena::util::umap_random(this->data);
+    }
+
+    virtual void erase(keytype key) {
+        this->data.erase(key); // removes ALL with that key
+    }
+};
+
 void do_init_database();
 
 #endif /* DATABASE_HPP */

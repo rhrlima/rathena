@@ -23029,11 +23029,11 @@ std::shared_ptr<s_skill_produce_db> skill_can_produce_mix(map_session_data *sd, 
 	if (!nameid || !item_db.exists(nameid))
 		return nullptr;
 
-	auto recipes = skill_produce_db.findById(nameid, trigger);
+	auto recipes = skill_produce_db.findAll(nameid);
 
 	for (auto& produce : recipes) {
 
-		ShowInfo("TRYING RECIPE ric=%d pid-%d gid=%d\n", produce->recipe_id, produce->product_id, produce->group_id);
+		ShowInfo("TRYING RECIPE pid%d gid=%d\n", produce->product_id, produce->group_id);
 
 		if (can_produce(sd, produce, trigger, qty))
 			return produce;
@@ -23055,7 +23055,7 @@ std::shared_ptr<s_skill_produce_db> skill_can_produce_mix(map_session_data *sd, 
  * @param s_skill_produce_db. Recipe to be produced (optional)
  * @return True is success, False if failed
  */
-bool skill_produce_mix(map_session_data *sd, uint16 skill_id, t_itemid nameid, uint16 slot1, uint16 slot2, uint16 slot3, int32 qty, std::shared_ptr<s_skill_produce_db> produce) {
+bool skill_produce_mix(map_session_data *sd, int32 skill_id, t_itemid nameid, uint16 slot1, uint16 slot2, uint16 slot3, int32 qty, std::shared_ptr<s_skill_produce_db> produce) {
 
 	int i;
 
@@ -23077,9 +23077,9 @@ bool skill_produce_mix(map_session_data *sd, uint16 skill_id, t_itemid nameid, u
 			return false;
 	}
 
-	ShowInfo("PRODUCE MIX ric=%d pid=%d skid=%d qty=%d\n", produce->recipe_id, nameid, skill_id, qty);
+	ShowInfo("PRODUCE MIX pid=%d skid=%d qty=%d\n", nameid, skill_id, qty);
 
-	if (!skill_id) // A skill can be specified for some override cases.
+	if (skill_id <= 0) // A skill can be specified for some override cases.
 		skill_id = produce->req_skill;
 
 	if( skill_id == GC_RESEARCHNEWPOISON ) //FIXME replace old skill
@@ -26213,7 +26213,6 @@ uint64 SkillProduceDatabase::parseBodyNode(const ryml::NodeRef &node) {
 	this->asUInt16(node, "Group", group_id);
 
 	auto produce = std::make_shared<s_skill_produce_db>();
-	produce->recipe_id = ++this->recipes;
 	produce->product_id = item->nameid;
 	produce->group_id = group_id;
 
@@ -26284,43 +26283,11 @@ uint64 SkillProduceDatabase::parseBodyNode(const ryml::NodeRef &node) {
 		produce->qty = qty;
 	}
 
-	this->put(this->recipes, produce);
+	this->put(produce->product_id, produce);
 
-	ShowInfo("PARSE RECIPE ric=%d pid=%d gid=%d\n", produce->recipe_id, produce->product_id, produce->group_id);
+	ShowInfo("PARSE RECIPE pid=%d gid=%d\n", produce->product_id, produce->group_id);
 
 	return 1;
-}
-
-/** Create a unique key composed of Product and Group info
- * @param product_id Produced Item
- * @param group_id Recipe Group
- * @return Unique key
- */
-// uint64 SkillProduceDatabase::makeKey(t_itemid product_id, uint16 group_id) {
-// 	return (static_cast<uint64>( product_id ) << 32) | static_cast<uint64>( group_id );
-// }
-
-/** Searches for a recipe based on the Product and Group
- * @param product_id Produced Item
- * @param group_id Recipe Group (optional for faster search)
- * @return s_skill_produce_db if found or nullptr
- */
-std::vector<std::shared_ptr<s_skill_produce_db>> SkillProduceDatabase::findById( t_itemid product_id, uint16 group_id ) {
-
-	std::vector<std::shared_ptr<s_skill_produce_db>> recipes;
-	recipes.reserve(5);
-
-	for (auto& [_, recipe] : this->data ) {
-		if ( group_id && recipe->group_id != group_id)
-			continue;
-
-		if ( recipe->product_id == product_id )
-			recipes.push_back(recipe);
-	}
-
-	ShowInfo("FOUND %d RECIPES\n", recipes.size());
-
-	return recipes;
 }
 
 /// ARROW DATABASE

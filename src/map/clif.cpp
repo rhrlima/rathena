@@ -6311,8 +6311,13 @@ void clif_skill_produce_mix_list( map_session_data& sd, int32 skill_id, int32 tr
 	p->packetType = HEADER_ZC_MAKABLEITEMLIST;
 	p->packetLength = sizeof( *p );
 
+	std::unordered_set<t_itemid> seen; // avoid duplicated recipes
+
 	int32 count = 0;
 	for (const auto &[_, recipe] : skill_produce_db) {
+
+		const bool inserted = seen.insert(recipe->product_id).second;
+    	if (!inserted) continue; // already processed this product
 
 		if (recipe->group_id != trigger)
 			continue;
@@ -6323,7 +6328,7 @@ void clif_skill_produce_mix_list( map_session_data& sd, int32 skill_id, int32 tr
 		if (!skill_can_produce_mix(&sd, recipe->product_id, trigger, 1))
 			continue;
 
-		ShowInfo("CAN PRODUCE ric=%d pid=%d gid=%d\n", recipe->recipe_id, recipe->product_id, trigger);
+		ShowInfo("CAN PRODUCE pid=%d gid=%d\n", recipe->product_id, trigger);
 
 		PACKET_ZC_MAKABLEITEMLIST_sub& entry = p->items[count];
 
@@ -6364,9 +6369,8 @@ void clif_skill_produce_mix_list( map_session_data& sd, int32 skill_id, int32 tr
 void clif_cooking_list( map_session_data& sd, int32 trigger, uint16 skill_id, int32 qty, int32 list_type ){
 #if PACKETVER >= 20051010
 	// Avoid resending the menu
-	if( sd.menuskill_id == skill_id ){
+	if( sd.menuskill_id == skill_id )
 		return;
-	}
 
 	PACKET_ZC_MAKINGITEM_LIST* p = reinterpret_cast<PACKET_ZC_MAKINGITEM_LIST*>( packet_buffer );
 
@@ -13112,8 +13116,11 @@ void clif_parse_RequestMemo(int32 fd,map_session_data *sd)
 }
 
 
-/// Answer to pharmacy item selection dialog.
-/// 018e <name id>.W { <material id>.W }*3 (CZ_REQMAKINGITEM)
+/** Answer to pharmacy item selection dialog.
+ * 018e <name id>.W { <material id>.W }*3 (CZ_REQMAKINGITEM)
+ * @param fd ??
+ * @param sd Player data
+ */
 void clif_parse_ProduceMix(int32 fd,map_session_data *sd){
 
 	nullpo_retv(sd);
@@ -13138,17 +13145,19 @@ void clif_parse_ProduceMix(int32 fd,map_session_data *sd){
 
 	ShowInfo("PRODUCE RESPONSE pid=%d gid=%d\n", p->itemId, sd->menuskill_val);
 
-	for (const auto &[_, recipe] : skill_produce_db) {
+	auto recipes = skill_produce_db.findAll(p->itemId);
 
-		if (recipe->product_id != p->itemId)
-			continue;
+	ShowInfo("FOUND %d RECIPES\n", recipes.size());
 
-		ShowInfo("RECIPE FOUND: rid=%d pid=%d gid=%d\n", recipe->recipe_id, recipe->product_id, recipe->group_id);
-		
+	for (const auto &recipe : recipes) {
+
+		ShowInfo("RECIPE FOUND: pid=%d gid=%d\n", recipe->product_id, recipe->group_id);
+
 		// std::shared_ptr<s_skill_produce_db> produce = skill_can_produce_mix(sd,p->itemId,sd->menuskill_val, 1);
+
 		auto produce = skill_can_produce_mix(sd, recipe->product_id, recipe->group_id, 1); // placeholder so it wont fail
 
-		if( produce == nullptr ) {
+		if( !produce ) {
 			ShowInfo("CANNOT PRODUCE\n");
 			continue;
 		}

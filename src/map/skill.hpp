@@ -448,7 +448,6 @@ enum e_dance_overlap : int32 {
 
 /// Create Database produce
 struct s_skill_produce_db {
-	uint16 recipe_id;		/// Unique ID
 	t_itemid product_id; 	/// Product ID
 	uint16 group_id;		/// Group ID
 	uint16 req_skill; 		/// Required Skill
@@ -459,18 +458,12 @@ struct s_skill_produce_db {
 	std::unordered_map<uint16, uint16> qty;			/// amount, rate
 };
 
-class SkillProduceDatabase : public TypesafeYamlDatabase<uint16, s_skill_produce_db> {
-protected:
-	uint16 recipes = 0;
-	// uint64 makeKey(t_itemid product_id, uint16 group_id);
+class SkillProduceDatabase : public TypesafeMultiYamlDatabase<t_itemid, s_skill_produce_db> {
 public:
-	SkillProduceDatabase() : TypesafeYamlDatabase("PRODUCE_DB", 1) {}
+	SkillProduceDatabase() : TypesafeMultiYamlDatabase("PRODUCE_DB", 1) {}
 
 	const std::string getDefaultLocation() override;
 	uint64 parseBodyNode(const ryml::NodeRef& node) override;
-
-	// using TypesafeYamlDatabase::find;
-	std::vector<std::shared_ptr<s_skill_produce_db>> findById( t_itemid product_id, uint16 group_id=0 );
 };
 
 extern SkillProduceDatabase skill_produce_db;
@@ -650,7 +643,7 @@ bool skill_isNotOk_npcRange(struct block_list *src, uint16 skill_id, uint16 skil
 // Item creation
 bool can_produce(map_session_data *sd, std::shared_ptr<s_skill_produce_db> recipe, uint16 trigger, int32 qty);
 std::shared_ptr<s_skill_produce_db> skill_can_produce_mix(map_session_data *sd, t_itemid nameid, uint16 trigger, int32 qty);
-bool skill_produce_mix( map_session_data *sd, uint16 skill_id, t_itemid nameid, uint16 slot1, uint16 slot2, uint16 slot3, int32 qty, std::shared_ptr<s_skill_produce_db> produce = nullptr );
+bool skill_produce_mix( map_session_data *sd, int32 skill_id, t_itemid nameid, uint16 slot1, uint16 slot2, uint16 slot3, int32 qty, std::shared_ptr<s_skill_produce_db> produce = nullptr );
 
 bool skill_arrow_create( map_session_data *sd, t_itemid nameid);
 
